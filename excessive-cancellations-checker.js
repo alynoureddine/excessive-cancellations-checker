@@ -4,12 +4,12 @@ import csv from 'csv-parser';
 /**
  * Reads the CSV file and returns the data as an array of objects.
  */
-async function readCSV() {
+async function readCSV(filePath) {
     let results = [];
 
     return new Promise((resolve, reject) => {
         try {
-            fs.createReadStream('./data/trades.csv')
+            fs.createReadStream(filePath)
                 .pipe(csv([
                     'time',
                     'companyName',
@@ -34,9 +34,6 @@ async function readCSV() {
 }
 
 export class ExcessiveCancellationsChecker {
-
-    // We are using a promise to store the companies data.
-    companies;
     /* 
         We provide a path to a file when initiating the class
         you have to use it in your methods to solve the task
@@ -44,16 +41,8 @@ export class ExcessiveCancellationsChecker {
     constructor(filePath) {
         this.filePath = filePath;
 
-        this.companies = new Promise(async (resolve, reject) => {
+        this.companies = readCSV(filePath).then((results) => {
             const companies = {};
-            let results;
-
-            try {
-                results = await readCSV('./data/trades.csv');
-            }
-            catch (error) {
-                reject("Failed to populate companies: ", error);
-            }
 
             results.forEach((result) => {
                 if (companies[result.companyName] === undefined) {
@@ -63,7 +52,9 @@ export class ExcessiveCancellationsChecker {
                 }
             });
 
-            resolve(companies);
+            return companies;
+        }).catch((error) => {
+            throw new Error("Failed to populate companies: ", error);
         });
     }
 
@@ -72,7 +63,7 @@ export class ExcessiveCancellationsChecker {
     * Note this should always resolve an array or throw error.
     */
     async companiesInvolvedInExcessiveCancellations() {
-        let badCompanies  = [];
+        let badCompanies = [];
         Object.entries(await this.companies).forEach(([company, trades]) => {
             if (this.checkExcessiveCancellation(trades)) {
                 badCompanies.push(company);
@@ -89,7 +80,7 @@ export class ExcessiveCancellationsChecker {
     async totalNumberOfWellBehavedCompanies() {
         let numberOfGoodCompanies = 0;
 
-        Object.entries(await this.companies).forEach(([company, trades]) => {
+        Object.values(await this.companies).forEach((trades) => {
             if (!this.checkExcessiveCancellation(trades)) {
                 numberOfGoodCompanies++;
             }
